@@ -3,141 +3,860 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Python Security Tools – Dependency Vulnerability, Unsafe Code & Pickle Analysis</title>
-
-<meta name="description" content="Advanced Python security tools for detecting vulnerabilities in dependencies, analyzing unsafe code, and securing pickle usage. Improve application security and reliability.">
-
-<meta name="keywords" content="python security tools, python vulnerability checker, python unsafe code detector, python pickle security, dependency vulnerability python">
-
 <meta name="google-site-verification" content="PkLa_ViOo6FAHpvh8SacceMb95o9tePRdrqLNBz9X1M" />
 
+<title>Python Security Tools – Dependency Vulnerability Scanner & Code Safety Checker</title>
+<meta name="description" content="Free Python security tools. Scan your requirements.txt for CVE vulnerabilities via OSV.dev, detect unsafe code patterns (eval, pickle, hardcoded secrets), and analyze Python security risks. No install required.">
+<link rel="canonical" href="https://franrivalbigprojects.github.io/python-security-tools/">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Python Dependency Vulnerability Scanner",
+  "description": "Scan Python requirements.txt files for known CVE vulnerabilities using OSV.dev database. Free, no install, client-side.",
+  "url": "https://franrivalbigprojects.github.io/python-security-tools/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Web",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I check Python dependencies for vulnerabilities?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Paste your requirements.txt content into the Dependency Vulnerability Scanner above. The tool queries the OSV.dev database (the same source used by pip-audit and GitHub Dependabot) for each package and version, returning known CVEs with severity, description, and the fixed version. No installation required." }
+    },
+    {
+      "@type": "Question",
+      "name": "What is OSV.dev?",
+      "acceptedAnswer": { "@type": "Answer", "text": "OSV (Open Source Vulnerabilities) is a vulnerability database maintained by Google. It aggregates security advisories from PyPA (Python Packaging Authority), GitHub Security Advisories, and other sources. It is the database used by pip-audit, PySentry, and GitHub Dependabot for Python vulnerability scanning." }
+    },
+    {
+      "@type": "Question",
+      "name": "What unsafe Python code patterns should I avoid?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The most dangerous Python security antipatterns: eval() and exec() with user input (arbitrary code execution), pickle.loads() on untrusted data (arbitrary code execution), subprocess with shell=True (command injection), hardcoded passwords and API keys, MD5/SHA1 for password hashing (weak cryptography), os.system() calls, random.random() for security tokens, and SQL string concatenation (SQL injection)." }
+    }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
 <style>
-body {
-    margin: 0;
-    font-family: system-ui, Arial, sans-serif;
-    background: linear-gradient(135deg, #020617, #0f172a);
-    color: #e5e7eb;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #080a0e;
+  --bg2:     #0d1018;
+  --bg3:     #121620;
+  --border:  #1c2430;
+  --border2: #243040;
+  --text:    #dce8f4;
+  --muted:   #4a7090;
+  --accent:  #ef4444;
+  --accent2: #c03030;
+  --green:   #22c55e;
+  --green-dim:#061606;
+  --orange:  #f59e0b;
+  --orange-dim:#180e00;
+  --red-dim: #1a0808;
+  --blue:    #38bdf8;
+  --yellow:  #facc15;
+  --mono:    'JetBrains Mono', monospace;
+  --sans:    'Inter', sans-serif;
 }
 
-header {
-    text-align: center;
-    padding: 60px 20px;
-}
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.7; }
+.container { max-width: 980px; margin: 0 auto; padding: 0 22px; }
 
-h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-}
+/* HEADER */
+header { background: var(--bg2); border-bottom: 3px solid var(--accent); padding: 46px 0 30px; }
+.breadcrumb { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+h1 { font-size: clamp(20px, 3.8vw, 36px); font-weight: 700; line-height: 1.1; color: #fff; margin-bottom: 12px; }
+h1 em { color: var(--accent); font-style: normal; }
+.byline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+.lead { font-size: 15px; color: var(--muted); max-width: 660px; line-height: 1.65; margin-bottom: 20px; }
+.header-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-family: var(--mono); font-size: 10px; padding: 3px 10px; border: 1px solid var(--border2); border-radius: 3px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.pill.hi    { border-color: var(--accent); color: var(--accent); }
+.pill.green { border-color: var(--green); color: var(--green); }
+.pill.blue  { border-color: var(--blue); color: var(--blue); }
 
-h2 {
-    margin-top: 50px;
-    color: #ef4444;
-}
+/* NAV */
+.nav-bar { background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.nav-bar .container { display: flex; overflow-x: auto; }
+.nav-bar a { font-family: var(--mono); font-size: 11px; color: var(--muted); text-decoration: none; padding: 10px 14px; white-space: nowrap; border-bottom: 2px solid transparent; text-transform: uppercase; letter-spacing: 0.04em; transition: color 0.15s, border-color 0.15s; }
+.nav-bar a:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
-main {
-    max-width: 1000px;
-    margin: auto;
-    padding: 20px;
-}
+/* SECTIONS */
+section { padding: 52px 0; border-bottom: 1px solid var(--border); }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: #fff; line-height: 1.2; }
+h2 em { color: var(--accent); font-style: normal; }
+.section-lead { color: var(--muted); font-size: 14px; margin-bottom: 24px; max-width: 640px; line-height: 1.7; }
+h3 { font-size: 16px; font-weight: 600; color: var(--text); margin: 28px 0 8px; }
+p { margin-bottom: 12px; color: var(--muted); font-size: 14px; line-height: 1.8; }
+p:last-child { margin-bottom: 0; }
+code { font-family: var(--mono); font-size: 12px; background: var(--bg3); padding: 2px 6px; border-radius: 3px; color: var(--blue); }
+strong { color: var(--text); }
 
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-}
+/* TOOL WRAP */
+.tool-wrap { background: var(--bg2); border: 1.5px solid var(--border2); border-radius: 10px; overflow: hidden; }
+.tool-head { background: var(--accent2); padding: 12px 20px; font-family: var(--mono); font-size: 12px; font-weight: 600; color: #fff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tool-body { padding: 22px; }
 
-.card {
-    background: #020617;
-    border: 1px solid #1e293b;
-    border-radius: 14px;
-    padding: 20px;
-    transition: 0.3s ease;
-}
+/* INPUTS */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
+.field textarea { width: 100%; background: var(--bg); border: 1px solid var(--border2); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 12px 14px; border-radius: 6px; outline: none; resize: vertical; transition: border-color 0.2s; line-height: 1.65; }
+.field textarea:focus { border-color: var(--accent); }
+.field textarea::placeholder { color: var(--muted); font-size: 11px; }
+.field-hint { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; }
 
-.card:hover {
-    transform: translateY(-5px);
-    border-color: #ef4444;
-}
+.btn { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.06em; transition: all 0.15s; border: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-primary:disabled { background: #4a2020; color: #7a5050; cursor: not-allowed; }
+.btn-sec { background: var(--bg3); border: 1px solid var(--border2); color: var(--muted); }
+.btn-sec:hover { border-color: var(--accent); color: var(--accent); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.status-hint { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
-.card a {
-    color: #ef4444;
-    font-weight: bold;
-    text-decoration: none;
-}
+/* SCAN PROGRESS */
+.scan-progress { display: none; padding: 14px 0; }
+.scan-progress.visible { display: block; }
+.progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+.progress-label { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
-.card a:hover {
-    text-decoration: underline;
-}
+/* SUMMARY BAR */
+.summary-bar { display: none; margin-top: 18px; }
+.summary-bar.visible { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; }
+.sum-badge { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 4px; }
+.sum-critical { background: #2a0808; color: #ff6060; border: 1px solid #5a1a1a; }
+.sum-high     { background: #1a1000; color: var(--orange); border: 1px solid #3a2200; }
+.sum-medium   { background: #1a1500; color: var(--yellow); border: 1px solid #3a3000; }
+.sum-low      { background: var(--green-dim); color: var(--green); border: 1px solid #1a4028; }
+.sum-clean    { background: var(--green-dim); color: var(--green); border: 1px solid #1a4028; }
+.sum-scanned  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
 
-footer {
-    text-align: center;
-    padding: 40px;
-    margin-top: 60px;
-    background: #020617;
-    font-size: 0.9rem;
+/* VULN RESULTS */
+.results-list { display: flex; flex-direction: column; gap: 0; margin-top: 16px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.pkg-row { border-bottom: 1px solid var(--border); }
+.pkg-row:last-child { border-bottom: none; }
+.pkg-header { display: flex; align-items: center; gap: 12px; padding: 11px 16px; cursor: pointer; background: var(--bg2); transition: background 0.1s; flex-wrap: wrap; }
+.pkg-header:hover { background: var(--bg3); }
+.pkg-name { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+.pkg-ver  { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.pkg-vulns-count { font-family: var(--mono); font-size: 11px; margin-left: auto; }
+.pkg-clean-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 3px; background: var(--green-dim); color: var(--green); border: 1px solid #1a4028; margin-left: auto; }
+.pkg-expand { font-family: var(--mono); font-size: 14px; color: var(--muted); flex-shrink: 0; transition: transform 0.2s; }
+.pkg-row.open .pkg-expand { transform: rotate(180deg); }
+.pkg-detail { display: none; padding: 0 16px 14px; background: var(--bg); }
+.pkg-row.open .pkg-detail { display: block; }
+
+/* VULN ITEM */
+.vuln-item { border: 1px solid var(--border); border-radius: 6px; padding: 13px 15px; margin-bottom: 8px; margin-top: 8px; border-left: 4px solid; }
+.vuln-item:last-child { margin-bottom: 0; }
+.vi-critical { border-left-color: #ff4444; }
+.vi-high     { border-left-color: var(--orange); }
+.vi-medium   { border-left-color: var(--yellow); }
+.vi-low      { border-left-color: var(--green); }
+.vi-header { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 6px; }
+.vi-id { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); }
+.sev-badge { font-family: var(--mono); font-size: 9px; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+.sev-CRITICAL { background: #2a0808; color: #ff6060; border: 1px solid #5a1a1a; }
+.sev-HIGH     { background: #1a1000; color: var(--orange); border: 1px solid #3a2200; }
+.sev-MEDIUM   { background: #1a1500; color: var(--yellow); border: 1px solid #3a3000; }
+.sev-LOW      { background: var(--green-dim); color: var(--green); border: 1px solid #1a4028; }
+.sev-UNKNOWN  { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+.vi-fixed { font-family: var(--mono); font-size: 11px; color: var(--green); margin-left: auto; }
+.vi-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 6px; }
+.vi-link { font-family: var(--mono); font-size: 11px; color: var(--blue); text-decoration: none; }
+.vi-link:hover { text-decoration: underline; }
+
+/* CODE SCANNER */
+.code-finding { display: flex; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.code-finding:last-child { border-bottom: none; }
+.cf-line { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 48px; flex-shrink: 0; }
+.cf-sev { flex-shrink: 0; }
+.cf-text { flex: 1; }
+.cf-rule { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.cf-detail { font-size: 12px; color: var(--muted); }
+.cf-code-snip { font-family: var(--mono); font-size: 11px; color: var(--blue); background: var(--bg3); padding: 3px 8px; border-radius: 3px; margin-top: 4px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+/* INFO GRID */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 8px; }
+.info-block h3 { margin-top: 0; }
+
+/* REF TABLE */
+.ref-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 7px; }
+table { width: 100%; border-collapse: collapse; background: var(--bg2); font-size: 13px; }
+thead { background: var(--bg3); }
+thead th { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 13px; text-align: left; color: var(--muted); white-space: nowrap; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg3); }
+tbody td { padding: 9px 13px; color: var(--muted); font-size: 13px; }
+.td-tool { font-weight: 600; color: var(--text); font-family: var(--mono); font-size: 12px; }
+.td-sev { font-family: var(--mono); font-size: 11px; }
+
+/* TOOLS NAV */
+.tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; margin-top: 8px; }
+.tool-nav-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; padding: 14px 16px; text-decoration: none; display: block; transition: border-color 0.15s; }
+.tool-nav-card:hover { border-color: var(--accent); }
+.tnc-name { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); display: block; margin-bottom: 3px; }
+.tnc-desc { font-size: 12px; color: var(--muted); }
+
+/* FAQ */
+.faq-item { border-bottom: 1px solid var(--border); }
+.faq-q { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 0; cursor: pointer; font-size: 14px; font-weight: 500; user-select: none; color: var(--text); }
+.faq-toggle { font-size: 20px; color: var(--accent); flex-shrink: 0; transition: transform 0.2s; }
+.faq-item.open .faq-toggle { transform: rotate(45deg); }
+.faq-a { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.3s; font-size: 14px; color: var(--muted); line-height: 1.75; }
+.faq-item.open .faq-a { max-height: 500px; padding-bottom: 16px; }
+
+footer { border-top: 1px solid var(--border); padding: 26px 0; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+footer .container { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+footer nav { display: flex; gap: 14px; flex-wrap: wrap; }
+footer nav a { color: var(--muted); text-decoration: none; }
+footer nav a:hover { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .info-grid { grid-template-columns: 1fr; }
+  footer .container { flex-direction: column; }
 }
 </style>
-
 </head>
 
 <body>
 
 <header>
-<h1>Python Security Tools for Vulnerability Detection & Safe Code Analysis</h1>
-<p>Protect your Python applications with tools designed to detect vulnerabilities, analyze unsafe code patterns, and secure serialization mechanisms.</p>
+  <div class="container">
+    <p class="breadcrumb"><a href="../">Python Tools</a> / Security</p>
+    <h1>Python <em>Security Tools</em><br>Dependency Scanner & Code Safety Checker</h1>
+    <p class="byline">Powered by OSV.dev · Updated May 2026 · No install required</p>
+    <p class="lead">Two free Python security tools: scan your <code>requirements.txt</code> for real CVEs via the OSV.dev database, and detect unsafe code patterns (eval, pickle, hardcoded secrets, weak crypto) by pasting Python code.</p>
+    <div class="header-pills">
+      <span class="pill hi">Real CVE data</span>
+      <span class="pill blue">OSV.dev API</span>
+      <span class="pill green">No install</span>
+      <span class="pill">No login</span>
+    </div>
+  </div>
 </header>
 
-<main>
+<nav class="nav-bar">
+  <div class="container">
+    <a href="#dep-scanner">Dependency Scanner</a>
+    <a href="#code-scanner">Code Scanner</a>
+    <a href="#guide">Security Guide</a>
+    <a href="#tools-compare">Tools</a>
+    <a href="#faq">FAQ</a>
+  </div>
+</nav>
 
-<section>
-<h2>Dependency & Vulnerability Analysis</h2>
+<!-- TOOL 1: DEPENDENCY SCANNER -->
+<section id="dep-scanner">
+  <div class="container">
+    <h2>Python Dependency <em>Vulnerability Scanner</em></h2>
+    <p class="section-lead">Paste your <code>requirements.txt</code> to scan each package against the OSV.dev database — the same source used by pip-audit and GitHub Dependabot. Results include CVE IDs, severity, description, and the fixed version.</p>
 
-<div class="grid">
+    <div class="tool-wrap">
+      <div class="tool-head">
+        <span>// Dependency Vulnerability Scanner — powered by OSV.dev</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.55);">Queries osv.dev for each package</span>
+      </div>
+      <div class="tool-body">
+        <div class="field">
+          <label>requirements.txt content</label>
+          <textarea id="req-input" rows="10"
+            placeholder="django==3.2.5&#10;flask==1.1.4&#10;requests==2.27.0&#10;Pillow==9.0.0&#10;cryptography==3.4.7&#10;jinja2==2.11.3&#10;&#10;# Supports: package==version, package>=version, package~=version&#10;# Comments (#) and blank lines are ignored"></textarea>
+          <div class="field-hint">Supports requirements.txt, Pipfile dependencies, or any package==version list. One package per line.</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="scan-btn" onclick="runDepScan()">Scan for Vulnerabilities</button>
+          <button class="btn btn-sec" onclick="loadDepExample()">Load Example</button>
+          <button class="btn btn-sec" onclick="clearDepScan()">Clear</button>
+          <span class="status-hint" id="dep-hint">Queries OSV.dev for each package</span>
+        </div>
 
-<div class="card">
-<p>
-python_security_tools/python_dependency_vulnerability_checker/
-Scan Python dependencies for known vulnerabilities and security risks.
-<a href="python_security_tools/python_dependency_vulnerability_checker/">Dependency Vulnerability Checker</a>
-</p>
-</div>
+        <div class="scan-progress" id="scan-progress">
+          <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          <div class="progress-label" id="progress-label">Scanning...</div>
+        </div>
 
-</div>
-
+        <div class="summary-bar" id="dep-summary"></div>
+        <div id="dep-results"></div>
+      </div>
+    </div>
+  </div>
 </section>
 
-<section>
-<h2>Code Safety & Risk Detection</h2>
+<!-- TOOL 2: CODE SCANNER -->
+<section id="code-scanner">
+  <div class="container">
+    <h2>Python Code <em>Safety Scanner</em></h2>
+    <p class="section-lead">Paste Python code to detect security antipatterns — dangerous functions, hardcoded secrets, weak cryptography, and SQL injection risks. Static analysis, runs entirely in the browser.</p>
 
-<div class="grid">
-
-<div class="card">
-<p>
-python_security_tools/python_unsafe_code_detector/
-Detect unsafe code patterns and potential execution risks.
-<a href="python_security_tools/python_unsafe_code_detector/">Unsafe Code Detector</a>
-</p>
-</div>
-
-<div class="card">
-<p>
-python_security_tools/python_pickle_security_analyzer/
-Analyze pickle usage and identify insecure serialization practices.
-<a href="python_security_tools/python_pickle_security_analyzer/">Pickle Security Analyzer</a>
-</p>
-</div>
-
-</div>
-
+    <div class="tool-wrap">
+      <div class="tool-head">
+        <span>// Python Code Safety Scanner — static pattern analysis</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.55);">100% client-side · no data sent</span>
+      </div>
+      <div class="tool-body">
+        <div class="field">
+          <label>Python source code</label>
+          <textarea id="code-input" rows="12"
+            placeholder="# Paste Python code here&#10;import pickle, subprocess, hashlib&#10;&#10;def login(user_input):&#10;    password = 'admin123'  # hardcoded&#10;    query = 'SELECT * FROM users WHERE id=' + user_input&#10;    result = eval(user_input)&#10;    data = pickle.loads(untrusted_data)&#10;    h = hashlib.md5(password.encode())&#10;    subprocess.call(cmd, shell=True)"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="runCodeScan()">Scan Code</button>
+          <button class="btn btn-sec" onclick="loadCodeExample()">Load Example</button>
+          <button class="btn btn-sec" onclick="clearCodeScan()">Clear</button>
+          <span class="status-hint" id="code-hint">Detects 20+ security patterns</span>
+        </div>
+        <div class="summary-bar" id="code-summary"></div>
+        <div id="code-results"></div>
+      </div>
+    </div>
+  </div>
 </section>
 
-</main>
+<!-- SECURITY GUIDE -->
+<section id="guide">
+  <div class="container">
+    <h2>Python Security <em>Best Practices</em></h2>
+    <p class="section-lead">The most common Python security vulnerabilities and how to fix them.</p>
+
+    <div class="info-grid">
+      <div class="info-block">
+        <h3>Dependency security</h3>
+        <p>Pin all dependencies to exact versions (<code>==</code>) in production. Unpinned deps (<code>requests>=2.0</code>) can auto-upgrade to vulnerable versions. Run <code>pip-audit</code> or this scanner in CI before every deployment. Update dependencies regularly — most CVEs are fixed within days of disclosure. Use <code>pip install --require-hashes</code> to prevent supply chain attacks.</p>
+      </div>
+      <div class="info-block">
+        <h3>Never use eval() or exec()</h3>
+        <p><code>eval(user_input)</code> is arbitrary code execution — any string the attacker controls becomes Python code running with your process permissions. Replace with: JSON parsing for data (<code>json.loads()</code>), <code>ast.literal_eval()</code> for safe Python literal evaluation, or explicit parsing logic. There is no safe way to use <code>eval()</code> with untrusted input.</p>
+      </div>
+      <div class="info-block">
+        <h3>Pickle deserialization</h3>
+        <p><code>pickle.loads(data)</code> on untrusted data is equivalent to <code>eval()</code> — it can execute arbitrary Python code during deserialization. An attacker who controls the pickled bytes can run any command. Use JSON, MessagePack, or Protocol Buffers for data exchange with untrusted sources. Only unpickle data you serialized yourself from a trusted source.</p>
+      </div>
+      <div class="info-block">
+        <h3>Weak cryptography</h3>
+        <p>MD5 and SHA1 are broken for security purposes — never use for password hashing or integrity verification. For passwords: use <code>bcrypt</code>, <code>argon2-cffi</code>, or <code>hashlib.scrypt()</code>. For integrity: use SHA-256 minimum. For random tokens and session IDs: use <code>secrets.token_hex()</code> not <code>random.random()</code> — the <code>random</code> module is not cryptographically secure.</p>
+      </div>
+    </div>
+
+    <h3>Hardcoded Secrets — The Most Common Mistake</h3>
+    <p>Hardcoded API keys, database passwords, and tokens in source code are the leading cause of cloud breaches. Git history is permanent — even if you remove a secret in a later commit, it remains in the history. Use environment variables (<code>os.environ.get('SECRET_KEY')</code>), <code>python-dotenv</code> for local development, and a secrets manager (AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager) in production. Scan git history with <code>truffleHog</code> or <code>gitleaks</code> if you suspect a commit contained a secret.</p>
+  </div>
+</section>
+
+<!-- TOOLS COMPARISON -->
+<section id="tools-compare">
+  <div class="container">
+    <h2>Python Security Tools <em>Comparison</em></h2>
+    <p class="section-lead">How this tool compares to the standard Python security ecosystem.</p>
+
+    <div class="ref-table-wrap">
+      <table>
+        <thead><tr><th>Tool</th><th>Type</th><th>Dependency CVEs</th><th>Code Patterns</th><th>Requires Install</th><th>CI/CD</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td class="td-tool">This Tool</td><td>Web (browser)</td><td>✓ OSV.dev live</td><td>✓ 20+ patterns</td><td>No</td><td>No</td><td>Free</td></tr>
+          <tr><td class="td-tool">pip-audit</td><td>CLI</td><td>✓ OSV + PyPA</td><td>✗</td><td>pip install</td><td>✓ Yes</td><td>Free</td></tr>
+          <tr><td class="td-tool">Bandit</td><td>CLI</td><td>✗</td><td>✓ AST-based</td><td>pip install</td><td>✓ Yes</td><td>Free</td></tr>
+          <tr><td class="td-tool">Safety CLI</td><td>CLI / SaaS</td><td>✓ Safety DB (4× more data)</td><td>✗</td><td>pip install</td><td>✓ Yes</td><td>Free / Paid</td></tr>
+          <tr><td class="td-tool">PySentry</td><td>CLI (Rust)</td><td>✓ OSV + PyPI</td><td>✗</td><td>uvx / cargo</td><td>✓ Yes</td><td>Free</td></tr>
+          <tr><td class="td-tool">Dependabot</td><td>GitHub SaaS</td><td>✓ GitHub Advisory DB</td><td>✗</td><td>GitHub only</td><td>✓ Auto PRs</td><td>Free (GitHub)</td></tr>
+          <tr><td class="td-tool">Semgrep</td><td>CLI / SaaS</td><td>✗</td><td>✓ Advanced rules</td><td>pip install</td><td>✓ Yes</td><td>Free / Paid</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLS NAV -->
+<section style="padding:40px 0; border-bottom:1px solid var(--border);">
+  <div class="container">
+    <h2>More Python <em>Tools</em></h2>
+    <div class="tools-grid">
+      <a href="python_dependency_vulnerability_checker/index.html" class="tool-nav-card"><span class="tnc-name">Dependency Checker</span><span class="tnc-desc">Full CVE dependency analysis</span></a>
+      <a href="python_unsafe_code_detector/index.html" class="tool-nav-card"><span class="tnc-name">Unsafe Code Detector</span><span class="tnc-desc">Detect dangerous code patterns</span></a>
+      <a href="python_pickle_security_analyzer/index.html" class="tool-nav-card"><span class="tnc-name">Pickle Security Analyzer</span><span class="tnc-desc">Analyze unsafe serialization</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <h2>Python Security Tools – <em>FAQ</em></h2>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">How does the dependency vulnerability scanner work?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">The scanner parses your requirements.txt to extract package names and version numbers. For each package, it sends a POST request to the OSV.dev API (osv.dev/v1/query) with the package name and version. OSV returns any known vulnerabilities from the PyPA Advisory Database, GitHub Security Advisories, and other sources. Results include the CVE/GHSA ID, severity (CRITICAL/HIGH/MEDIUM/LOW), a description of the vulnerability, and the version that fixes the issue. All data comes directly from OSV.dev — the same database used by pip-audit and GitHub Dependabot.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">Is my code or requirements.txt sent to any server?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">The code scanner is 100% client-side — your Python code never leaves your browser. For the dependency scanner, only package names and version numbers are sent to the OSV.dev API (no code, no file contents). OSV.dev is a Google-maintained public database — it receives billions of queries from tools like pip-audit and Dependabot. The OSV.dev privacy policy applies to those queries. If you're scanning code from a confidential project, use the code scanner (client-side) freely, but be aware the dependency scanner sends package metadata to osv.dev.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">What is the difference between pip-audit and this tool?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">pip-audit is a CLI tool you install with pip that scans your current environment or a requirements file. This tool does the same dependency scanning through a browser UI — no installation needed. pip-audit is better for CI/CD pipelines, automated scanning, and scanning virtual environments. This tool is better for quick one-off checks without installing anything. Both use the OSV.dev database. pip-audit also checks against PyPA's own advisory database which may have slightly different coverage than OSV alone.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">What Python security patterns does the code scanner detect?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">The code scanner detects: eval() and exec() usage (arbitrary code execution risk), pickle.loads/dumps/Unpickler (unsafe deserialization), subprocess with shell=True (command injection), os.system() calls, hardcoded passwords/secrets/API keys, MD5 and SHA1 for cryptography (weak hashing), random.random() in security contexts (non-cryptographic PRNG), SQL string concatenation (SQL injection risk), assert statements for security checks (bypassable with -O), yaml.load() without Loader (unsafe YAML), urllib without SSL verification, and more. It uses pattern matching — not AST analysis like Bandit — so review all findings in context.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">How do I run Python security scanning in CI/CD?<span class="faq-toggle">+</span></div>
+      <div class="faq-a">For CI/CD, use CLI tools: pip-audit (pip install pip-audit, then pip-audit -r requirements.txt --fail-on-vuln) for dependency scanning, and Bandit (pip install bandit, then bandit -r src/) for code scanning. Both return non-zero exit codes when vulnerabilities are found, which fails the CI build. For GitHub Actions: use the official pip-audit GitHub Action or add the commands as a workflow step. Safety CLI also integrates with CI/CD and has a GitHub Action. This browser tool is for quick checks — for production pipelines, use the CLI tools directly.</div>
+    </div>
+  </div>
+</section>
 
 <footer>
-<p>Python security tools designed for developers, security engineers, and DevOps teams focused on secure coding practices and vulnerability prevention.</p>
+  <div class="container">
+    <span>Python Security Tools — OSV.dev powered — May 2026</span>
+    <nav>
+      <a href="#dep-scanner">Scanner</a>
+      <a href="#code-scanner">Code</a>
+      <a href="#guide">Guide</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </div>
 </footer>
 
+<!-- ================================================================
+     JAVASCRIPT — ES5, NO ARROW FUNCTIONS
+     Dependency scanner: real OSV.dev API calls
+     Code scanner: static regex pattern analysis
+     ================================================================ -->
+<script>
+
+/* ════════════════════════════════════════════════
+   DEPENDENCY VULNERABILITY SCANNER — OSV.dev API
+   ════════════════════════════════════════════════ */
+
+var OSV_API = 'https://api.osv.dev/v1/query';
+var depScanResults = [];
+
+/* Parse requirements.txt lines into {name, version} objects */
+function parseRequirements(text) {
+  var lines = text.split('\n');
+  var packages = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    /* Skip comments, blank lines, options (-r, -c, --index-url, etc.) */
+    if (!line || line.charAt(0) === '#' || line.charAt(0) === '-') { continue; }
+    /* Strip inline comments */
+    var commentIdx = line.indexOf('#');
+    if (commentIdx !== -1) { line = line.slice(0, commentIdx).trim(); }
+    /* Strip environment markers (;python_version>="3.8") */
+    var semicolonIdx = line.indexOf(';');
+    if (semicolonIdx !== -1) { line = line.slice(0, semicolonIdx).trim(); }
+    /* Extract package and version — supports ==, >=, <=, ~=, !=, > < */
+    var m = line.match(/^([A-Za-z0-9_\-\.]+)\s*([=~!<>]+)\s*([^\s,]+)/);
+    if (m) {
+      var name = m[1].toLowerCase().replace(/_/g, '-');
+      /* Only use exact version for OSV query — otherwise use latest marker */
+      var op  = m[2];
+      var ver = m[3];
+      packages.push({ name: name, rawName: m[1], version: ver, op: op, line: lines[i].trim() });
+    }
+  }
+  return packages;
+}
+
+/* Query OSV.dev for one package */
+function queryOSV(pkgName, version, callback) {
+  var body = JSON.stringify({
+    version: version,
+    package: { name: pkgName, ecosystem: 'PyPI' }
+  });
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', OSV_API, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.timeout = 10000;
+
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4) { return; }
+    if (xhr.status === 200) {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        callback(null, data.vulns || []);
+      } catch(e) {
+        callback(null, []);
+      }
+    } else {
+      callback('HTTP ' + xhr.status, []);
+    }
+  };
+  xhr.ontimeout = function() { callback('timeout', []); };
+  xhr.onerror   = function() { callback('network error', []); };
+  xhr.send(body);
+}
+
+/* Get highest severity from a vuln object */
+function getVulnSeverity(vuln) {
+  var sev = 'UNKNOWN';
+  if (vuln.severity && vuln.severity.length) {
+    /* OSV severity types: CVSS_V3, CVSS_V2 */
+    for (var i = 0; i < vuln.severity.length; i++) {
+      var score = parseFloat(vuln.severity[i].score);
+      if (!isNaN(score)) {
+        if (score >= 9.0)      { sev = 'CRITICAL'; }
+        else if (score >= 7.0) { sev = sev === 'CRITICAL' ? sev : 'HIGH'; }
+        else if (score >= 4.0) { sev = (sev === 'CRITICAL' || sev === 'HIGH') ? sev : 'MEDIUM'; }
+        else                   { sev = sev === 'UNKNOWN' ? 'LOW' : sev; }
+      }
+    }
+  }
+  /* Fallback: check database_specific for severity string */
+  if (sev === 'UNKNOWN' && vuln.database_specific) {
+    var ds = vuln.database_specific;
+    if (ds.severity) {
+      var s = ds.severity.toUpperCase();
+      if (s === 'CRITICAL' || s === 'HIGH' || s === 'MEDIUM' || s === 'LOW') { sev = s; }
+    }
+  }
+  return sev;
+}
+
+/* Get fixed version from affected array */
+function getFixedVersion(vuln) {
+  if (!vuln.affected) { return null; }
+  for (var i = 0; i < vuln.affected.length; i++) {
+    var aff = vuln.affected[i];
+    if (aff.ranges) {
+      for (var j = 0; j < aff.ranges.length; j++) {
+        var range = aff.ranges[j];
+        if (range.events) {
+          for (var k = 0; k < range.events.length; k++) {
+            if (range.events[k].fixed) { return range.events[k].fixed; }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/* Get primary OSV/CVE link */
+function getVulnLink(vuln) {
+  if (vuln.references && vuln.references.length) {
+    for (var i = 0; i < vuln.references.length; i++) {
+      var ref = vuln.references[i];
+      if (ref.type === 'ADVISORY' || ref.type === 'WEB') { return ref.url; }
+    }
+    return vuln.references[0].url;
+  }
+  if (vuln.id && vuln.id.indexOf('GHSA-') === 0) {
+    return 'https://github.com/advisories/' + vuln.id;
+  }
+  if (vuln.id && vuln.id.indexOf('CVE-') === 0) {
+    return 'https://nvd.nist.gov/vuln/detail/' + vuln.id;
+  }
+  return 'https://osv.dev/vulnerability/' + vuln.id;
+}
+
+/* Main scanner */
+function runDepScan() {
+  var raw = document.getElementById('req-input').value.trim();
+  if (!raw) { alert('Paste your requirements.txt content first.'); return; }
+
+  var packages = parseRequirements(raw);
+  if (!packages.length) { alert('No packages with versions found. Make sure each line has a version (e.g. django==3.2.5).'); return; }
+
+  /* UI: disable button, show progress */
+  document.getElementById('scan-btn').disabled = true;
+  document.getElementById('dep-hint').textContent = 'Scanning ' + packages.length + ' packages...';
+  document.getElementById('scan-progress').className = 'scan-progress visible';
+  document.getElementById('dep-summary').className = 'summary-bar';
+  document.getElementById('dep-results').innerHTML = '';
+  depScanResults = [];
+
+  var completed = 0;
+  var totalVulns = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+
+  function updateProgress() {
+    completed++;
+    var pct = Math.round((completed / packages.length) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = 'Scanning ' + completed + ' / ' + packages.length + ' packages...';
+
+    if (completed === packages.length) {
+      /* All done */
+      document.getElementById('scan-btn').disabled = false;
+      document.getElementById('scan-progress').className = 'scan-progress';
+      renderDepResults(totalVulns);
+    }
+  }
+
+  for (var i = 0; i < packages.length; i++) {
+    (function(pkg) {
+      queryOSV(pkg.name, pkg.version, function(err, vulns) {
+        var result = { pkg: pkg, vulns: vulns || [], err: err };
+        depScanResults.push(result);
+        /* Tally severities */
+        for (var v = 0; v < result.vulns.length; v++) {
+          var sev = getVulnSeverity(result.vulns[v]);
+          if (totalVulns[sev] !== undefined) { totalVulns[sev]++; }
+          else { totalVulns.UNKNOWN++; }
+        }
+        updateProgress();
+      });
+    })(packages[i]);
+  }
+}
+
+function renderDepResults(totals) {
+  /* Sort: packages with vulns first, by severity */
+  depScanResults.sort(function(a, b) {
+    return (b.vulns.length) - (a.vulns.length);
+  });
+
+  /* Summary bar */
+  var totalFound = totals.CRITICAL + totals.HIGH + totals.MEDIUM + totals.LOW + totals.UNKNOWN;
+  var sumHtml = '';
+  if (totalFound === 0) {
+    sumHtml = '<span class="sum-badge sum-clean">✓ No vulnerabilities found</span>';
+  } else {
+    if (totals.CRITICAL) { sumHtml += '<span class="sum-badge sum-critical">' + totals.CRITICAL + ' CRITICAL</span>'; }
+    if (totals.HIGH)     { sumHtml += '<span class="sum-badge sum-high">'     + totals.HIGH     + ' HIGH</span>'; }
+    if (totals.MEDIUM)   { sumHtml += '<span class="sum-badge sum-medium">'   + totals.MEDIUM   + ' MEDIUM</span>'; }
+    if (totals.LOW)      { sumHtml += '<span class="sum-badge sum-low">'      + totals.LOW      + ' LOW</span>'; }
+  }
+  sumHtml += '<span class="sum-scanned">' + depScanResults.length + ' packages scanned · osv.dev</span>';
+  var sumEl = document.getElementById('dep-summary');
+  sumEl.innerHTML = sumHtml;
+  sumEl.className = 'summary-bar visible';
+  document.getElementById('dep-hint').textContent = totalFound + ' vulnerabilities found across ' + depScanResults.length + ' packages';
+
+  /* Results list */
+  var html = '<div class="results-list">';
+  for (var i = 0; i < depScanResults.length; i++) {
+    var r = depScanResults[i];
+    var hasVulns = r.vulns.length > 0;
+    var vulnCountHtml = '';
+    if (hasVulns) {
+      /* Count severities for this package */
+      var pkgSevs = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, UNKNOWN:0 };
+      for (var v = 0; v < r.vulns.length; v++) {
+        var s = getVulnSeverity(r.vulns[v]);
+        if (pkgSevs[s] !== undefined) { pkgSevs[s]++; }
+      }
+      var sevStr = '';
+      if (pkgSevs.CRITICAL) { sevStr += '<span class="sum-badge sum-critical" style="font-size:10px;padding:2px 7px;">' + pkgSevs.CRITICAL + ' CRITICAL</span> '; }
+      if (pkgSevs.HIGH)     { sevStr += '<span class="sum-badge sum-high"     style="font-size:10px;padding:2px 7px;">' + pkgSevs.HIGH     + ' HIGH</span> '; }
+      if (pkgSevs.MEDIUM)   { sevStr += '<span class="sum-badge sum-medium"   style="font-size:10px;padding:2px 7px;">' + pkgSevs.MEDIUM   + ' MEDIUM</span> '; }
+      if (pkgSevs.LOW)      { sevStr += '<span class="sum-badge sum-low"      style="font-size:10px;padding:2px 7px;">' + pkgSevs.LOW      + ' LOW</span>'; }
+      vulnCountHtml = '<span class="pkg-vulns-count">' + sevStr + '</span>';
+    }
+
+    html += '<div class="pkg-row" id="pkgrow-' + i + '">';
+    html += '<div class="pkg-header" onclick="togglePkg(' + i + ')">';
+    html += '<span class="pkg-name">' + escHTML(r.pkg.rawName) + '</span>';
+    html += '<span class="pkg-ver">' + escHTML(r.pkg.op) + escHTML(r.pkg.version) + '</span>';
+    if (r.err) {
+      html += '<span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto;">⚠ ' + escHTML(r.err) + '</span>';
+    } else if (hasVulns) {
+      html += vulnCountHtml;
+      html += '<span class="pkg-expand">▾</span>';
+    } else {
+      html += '<span class="pkg-clean-badge">✓ No vulnerabilities</span>';
+    }
+    html += '</div>';
+
+    if (hasVulns) {
+      html += '<div class="pkg-detail">';
+      for (var v = 0; v < r.vulns.length; v++) {
+        var vuln = r.vulns[v];
+        var sev  = getVulnSeverity(vuln);
+        var fixed = getFixedVersion(vuln);
+        var link  = getVulnLink(vuln);
+        var desc  = vuln.summary || vuln.details || 'No description available.';
+        if (desc.length > 200) { desc = desc.slice(0, 197) + '...'; }
+
+        html += '<div class="vuln-item vi-' + sev.toLowerCase() + '">';
+        html += '<div class="vi-header">';
+        html += '<span class="vi-id">' + escHTML(vuln.id) + '</span>';
+        html += '<span class="sev-badge sev-' + sev + '">' + sev + '</span>';
+        if (vuln.aliases && vuln.aliases.length) {
+          for (var a = 0; a < Math.min(2, vuln.aliases.length); a++) {
+            html += '<span class="sev-badge" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border);">' + escHTML(vuln.aliases[a]) + '</span>';
+          }
+        }
+        if (fixed) { html += '<span class="vi-fixed">→ Fix: ' + escHTML(fixed) + '</span>'; }
+        html += '</div>';
+        html += '<div class="vi-desc">' + escHTML(desc) + '</div>';
+        html += '<a class="vi-link" href="' + escHTML(link) + '" target="_blank" rel="noopener">View on OSV.dev ↗</a>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  document.getElementById('dep-results').innerHTML = html;
+
+  /* Auto-open packages with CRITICAL/HIGH vulns */
+  for (var j = 0; j < depScanResults.length; j++) {
+    if (depScanResults[j].vulns.length > 0) { togglePkg(j); break; }
+  }
+}
+
+function togglePkg(idx) {
+  var row = document.getElementById('pkgrow-' + idx);
+  if (!row) { return; }
+  var isOpen = row.className.indexOf(' open') !== -1;
+  row.className = isOpen ? 'pkg-row' : 'pkg-row open';
+}
+
+function loadDepExample() {
+  document.getElementById('req-input').value = 'django==3.2.5\nflask==1.1.4\nrequests==2.27.0\nPillow==9.0.0\ncryptography==3.4.7\njinja2==2.11.3\ncelery==4.4.7\npydantic==1.9.0\nsqlalchemy==1.4.23\nfastapi==0.70.0';
+}
+
+function clearDepScan() {
+  document.getElementById('req-input').value = '';
+  document.getElementById('dep-summary').className = 'summary-bar';
+  document.getElementById('dep-results').innerHTML = '';
+  document.getElementById('scan-progress').className = 'scan-progress';
+  document.getElementById('dep-hint').textContent = 'Queries OSV.dev for each package';
+  depScanResults = [];
+}
+
+/* ════════════════════════════════════════════════
+   CODE SAFETY SCANNER — static pattern analysis
+   ════════════════════════════════════════════════ */
+
+var CODE_RULES = [
+  /* CRITICAL */
+  { id:'B001', sev:'CRITICAL', name:'eval() usage', detail:'eval() executes arbitrary Python code. Never use with untrusted input.', pattern:/\beval\s*\(/ },
+  { id:'B002', sev:'CRITICAL', name:'exec() usage', detail:'exec() executes arbitrary Python code. Never use with untrusted input.', pattern:/\bexec\s*\(/ },
+  { id:'B003', sev:'CRITICAL', name:'pickle.loads() — unsafe deserialization', detail:'pickle.loads() on untrusted data allows arbitrary code execution.', pattern:/pickle\s*\.\s*(loads|load|Unpickler)\s*\(/ },
+  { id:'B004', sev:'CRITICAL', name:'subprocess shell=True', detail:'shell=True passes command to shell, enabling command injection if user input is included.', pattern:/subprocess\s*\.\s*\w+\s*\([^)]*shell\s*=\s*True/ },
+  { id:'B005', sev:'CRITICAL', name:'os.system() usage', detail:'os.system() passes a command string to the OS shell. Use subprocess with a list instead.', pattern:/\bos\s*\.\s*system\s*\(/ },
+
+  /* HIGH */
+  { id:'B101', sev:'HIGH', name:'Hardcoded password', detail:'Passwords in source code are exposed in version control and logs.', pattern:/\b(password|passwd|pwd)\s*=\s*['"][^'"]{2,}['"]/ },
+  { id:'B102', sev:'HIGH', name:'Hardcoded secret/API key', detail:'Secrets and API keys in code are a common cause of breaches. Use environment variables.', pattern:/\b(secret|api_key|apikey|token|access_key|private_key)\s*=\s*['"][^'"]{4,}['"]/ },
+  { id:'B103', sev:'HIGH', name:'Hardcoded database credentials', detail:'Database credentials in source code risk unauthorized access if code is shared.', pattern:/\b(db_password|database_password|mysql_password|pg_password)\s*=\s*['"][^'"]+['"]/ },
+  { id:'B104', sev:'HIGH', name:'yaml.load() without Loader', detail:'yaml.load() without Loader=yaml.SafeLoader can execute arbitrary Python. Use yaml.safe_load().', pattern:/yaml\s*\.\s*load\s*\([^)]*\)(?![^)]*Loader)/ },
+  { id:'B105', sev:'HIGH', name:'SQL string concatenation', detail:'Concatenating user input into SQL queries creates SQL injection vulnerability. Use parameterized queries.', pattern:/(SELECT|INSERT|UPDATE|DELETE|WHERE)[^'"]*\+\s*/ },
+
+  /* MEDIUM */
+  { id:'B201', sev:'MEDIUM', name:'MD5 used for hashing', detail:'MD5 is cryptographically broken. Use SHA-256 or stronger for integrity, bcrypt/argon2 for passwords.', pattern:/hashlib\s*\.\s*md5\s*\(/ },
+  { id:'B202', sev:'MEDIUM', name:'SHA1 used for hashing', detail:'SHA1 is deprecated for security. Use SHA-256 minimum.', pattern:/hashlib\s*\.\s*sha1\s*\(/ },
+  { id:'B203', sev:'MEDIUM', name:'random module for security token', detail:'random.random() is not cryptographically secure. Use secrets.token_hex() or os.urandom() for security tokens.', pattern:/\brandom\s*\.\s*(random|randint|choice|randrange)\s*\(/ },
+  { id:'B204', sev:'MEDIUM', name:'assert used for security check', detail:'assert statements are disabled with python -O. Never use assert for security validation.', pattern:/\bassert\s+.*(auth|admin|permission|role|login|user)/ },
+  { id:'B205', sev:'MEDIUM', name:'Disabled SSL verification', detail:'verify=False disables SSL certificate validation, enabling man-in-the-middle attacks.', pattern:/verify\s*=\s*False/ },
+  { id:'B206', sev:'MEDIUM', name:'Weak DES/RC4/Blowfish cipher', detail:'DES, RC4, and Blowfish are deprecated ciphers. Use AES-256-GCM or ChaCha20-Poly1305.', pattern:/\b(DES|RC4|Blowfish|ARC2|ARC4)\b/ },
+  { id:'B207', sev:'MEDIUM', name:'pickle.dumps() — serialization risk', detail:'Data serialized with pickle can only be safely deserialized from trusted sources.', pattern:/pickle\s*\.\s*dumps\s*\(/ },
+
+  /* LOW */
+  { id:'B301', sev:'LOW', name:'print() with sensitive variable name', detail:'Logging passwords or tokens via print() may expose them in logs or output.', pattern:/\bprint\s*\([^)]*\b(password|token|secret|key)\b/ },
+  { id:'B302', sev:'LOW', name:'tempfile.mktemp() usage', detail:'mktemp() has a race condition. Use tempfile.mkstemp() or tempfile.NamedTemporaryFile() instead.', pattern:/tempfile\s*\.\s*mktemp\s*\(/ },
+  { id:'B303', sev:'LOW', name:'Binding to all interfaces (0.0.0.0)', detail:'Binding to 0.0.0.0 exposes the service on all network interfaces. Use 127.0.0.1 in development.', pattern:/'0\.0\.0\.0'|"0\.0\.0\.0"/ },
+  { id:'B304', sev:'LOW', name:'DEBUG mode enabled', detail:'Debug mode in web frameworks exposes stack traces and sensitive data. Disable in production.', pattern:/\bDEBUG\s*=\s*True/ }
+];
+
+function runCodeScan() {
+  var code = document.getElementById('code-input').value;
+  if (!code.trim()) { alert('Paste Python code first.'); return; }
+
+  var lines = code.split('\n');
+  var findings = [];
+  var sevCounts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0 };
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    /* Skip comment-only lines */
+    if (/^\s*#/.test(line)) { continue; }
+    for (var r = 0; r < CODE_RULES.length; r++) {
+      var rule = CODE_RULES[r];
+      if (rule.pattern.test(line)) {
+        findings.push({ rule: rule, lineNum: i + 1, lineText: line.trim() });
+        sevCounts[rule.sev]++;
+      }
+    }
+  }
+
+  /* Summary */
+  var totalFound = sevCounts.CRITICAL + sevCounts.HIGH + sevCounts.MEDIUM + sevCounts.LOW;
+  var sumHtml = '';
+  if (totalFound === 0) {
+    sumHtml = '<span class="sum-badge sum-clean">✓ No security patterns detected</span>';
+  } else {
+    if (sevCounts.CRITICAL) { sumHtml += '<span class="sum-badge sum-critical">' + sevCounts.CRITICAL + ' CRITICAL</span>'; }
+    if (sevCounts.HIGH)     { sumHtml += '<span class="sum-badge sum-high">'     + sevCounts.HIGH     + ' HIGH</span>'; }
+    if (sevCounts.MEDIUM)   { sumHtml += '<span class="sum-badge sum-medium">'   + sevCounts.MEDIUM   + ' MEDIUM</span>'; }
+    if (sevCounts.LOW)      { sumHtml += '<span class="sum-badge sum-low">'      + sevCounts.LOW      + ' LOW</span>'; }
+  }
+  sumHtml += '<span class="sum-scanned">' + lines.length + ' lines scanned · ' + CODE_RULES.length + ' rules</span>';
+  var sumEl = document.getElementById('code-summary');
+  sumEl.innerHTML = sumHtml;
+  sumEl.className = 'summary-bar visible';
+  document.getElementById('code-hint').textContent = totalFound + ' findings in ' + lines.length + ' lines';
+
+  /* Results */
+  if (!findings.length) {
+    document.getElementById('code-results').innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--muted);">No known security patterns found. Review with Bandit for deeper AST-based analysis.</div>';
+    return;
+  }
+
+  var html = '<div class="results-list" style="margin-top:16px;">';
+  for (var f = 0; f < findings.length; f++) {
+    var fi = findings[f];
+    var sev = fi.rule.sev;
+    html += '<div class="code-finding">';
+    html += '<span class="cf-line">L' + fi.lineNum + '</span>';
+    html += '<span class="cf-sev"><span class="sev-badge sev-' + sev + '">' + sev + '</span></span>';
+    html += '<div class="cf-text">';
+    html += '<div class="cf-rule">' + escHTML(fi.rule.id) + ' — ' + escHTML(fi.rule.name) + '</div>';
+    html += '<div class="cf-detail">' + escHTML(fi.rule.detail) + '</div>';
+    html += '<code class="cf-code-snip">' + escHTML(fi.lineText.slice(0, 120)) + '</code>';
+    html += '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('code-results').innerHTML = html;
+}
+
+function loadCodeExample() {
+  document.getElementById('code-input').value = '# Example vulnerable Python code\nimport pickle\nimport hashlib\nimport subprocess\nimport os\nimport random\n\nDEBUG = True\n\ndef authenticate(username, password):\n    db_password = "super_secret_123"\n    api_key = "sk-prod-abc12345xyz"\n    query = "SELECT * FROM users WHERE name=" + username\n    result = eval(user_input)\n    return True\n\ndef process_data(data):\n    loaded = pickle.loads(data)\n    h = hashlib.md5(data).hexdigest()\n    token = str(random.random())\n    subprocess.call("ls " + data, shell=True)\n    os.system("rm -rf " + data)\n    return loaded\n\napp.run(host="0.0.0.0", debug=True)';
+}
+
+function clearCodeScan() {
+  document.getElementById('code-input').value = '';
+  document.getElementById('code-summary').className = 'summary-bar';
+  document.getElementById('code-results').innerHTML = '';
+  document.getElementById('code-hint').textContent = 'Detects 20+ security patterns';
+}
+
+/* ── HELPERS ── */
+function escHTML(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleFaq(el) {
+  var item = el.parentNode;
+  var isOpen = item.className.indexOf('open') !== -1;
+  var all = document.querySelectorAll('.faq-item');
+  for (var i = 0; i < all.length; i++) { all[i].className = 'faq-item'; }
+  if (!isOpen) { item.className = 'faq-item open'; }
+}
+
+</script>
 </body>
 </html>
